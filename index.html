@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ky">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Otherwise</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#fff;--fg:#111;--mut:#777;--line:#eee;--acc:#c8a15a;--card:#f7f7f5}
+*{box-sizing:border-box;margin:0}
+body{font-family:Manrope,system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+header{position:sticky;top:0;background:#fffe;backdrop-filter:blur(8px);display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);z-index:5}
+.logo{font-weight:800;font-size:22px;letter-spacing:-.5px}
+.cartbtn{background:var(--fg);color:#fff;border:0;border-radius:99px;padding:9px 16px;font:600 14px Manrope}
+.hero{padding:36px 16px 20px}.hero h1{font-size:34px;font-weight:800;line-height:1.1}.hero p{color:var(--mut);margin-top:8px}
+.tools{padding:0 16px;display:grid;gap:10px}
+input,select,textarea{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:12px;font:500 15px Manrope;background:var(--card)}
+.cats{display:flex;gap:8px;overflow-x:auto;padding:12px 16px}
+.chip{white-space:nowrap;border:1px solid var(--line);background:#fff;border-radius:99px;padding:8px 16px;font:600 13px Manrope}
+.chip.on{background:var(--fg);color:#fff}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:4px 16px 40px}
+@media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}}
+.p{background:var(--card);border-radius:16px;overflow:hidden;cursor:pointer;transition:.2s}
+.p:active{transform:scale(.98)}
+.p img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block;background:#e8e8e4}
+.p div{padding:10px 12px 14px}.p b{display:block;font-size:14px}.p span{font-weight:800;color:var(--acc)}
+.badge{font-size:11px;background:var(--acc);color:#fff;border-radius:6px;padding:2px 7px;margin-left:6px}
+.sheet{position:fixed;inset:0;background:#0007;display:none;align-items:flex-end;z-index:10}
+.sheet.open{display:flex}
+.box{background:#fff;width:100%;max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:20px 16px 30px;animation:up .25s}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+.box img.big{width:100%;border-radius:14px;max-height:50vh;object-fit:cover}
+.opt{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px}
+.btn{width:100%;background:var(--fg);color:#fff;border:0;border-radius:14px;padding:15px;font:700 16px Manrope;margin-top:10px}
+.btn.alt{background:var(--card);color:var(--fg)}
+.row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);gap:8px}
+.x{border:0;background:none;color:#c33;font-size:20px}
+.pay{background:var(--card);border-radius:14px;padding:14px;margin:12px 0;text-align:center}
+.pay b{font-size:22px;letter-spacing:1px;display:block;margin:6px 0}
+h2{margin-bottom:10px}small{color:var(--mut)}
+</style>
+</head>
+<body>
+<header><div class="logo">Otherwise</div><button class="cartbtn" onclick="openCart()">Себет (<span id="cnt">0</span>)</button></header>
+<section class="hero"><h1>Өзүңдүн<br>стилиңди тап.</h1><p>Жаңы кийимдер, ыңгайлуу баалар.</p></section>
+<div class="tools"><input id="q" placeholder="Издөө..." oninput="render()">
+<select id="sort" onchange="render()"><option value="">Жаңылары</option><option value="asc">Баасы: арзандан кымбатка</option><option value="desc">Баасы: кымбаттан арзанга</option></select></div>
+<div class="cats" id="cats"></div>
+<div class="grid" id="grid"></div>
+<div class="sheet" id="sheet" onclick="if(event.target===this)closeSheet()"><div class="box" id="box"></div></div>
+
+<script>
+// ====== ЖӨНДӨӨЛӨР: ачкычты ушул жерге коюңуз ======
+const SUPABASE_URL = 'https://qxdfdshjqlplvcjzweqf.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_JVNERPgNvRzjoGTjmj8wKw_kvRZKCPz';
+// ==================================================
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let products=[], cats=[], cat=0, cart=[], card='';
+try{cart=JSON.parse(localStorage.getItem('cart')||'[]')}catch(e){}
+const som=n=>Number(n).toLocaleString('ru-RU')+' сом';
+const save=()=>{try{localStorage.setItem('cart',JSON.stringify(cart))}catch(e){};document.getElementById('cnt').textContent=cart.reduce((s,i)=>s+i.qty,0)};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function init(){
+  const [c,p,s]=await Promise.all([db.from('categories').select('*').order('id'),db.from('products').select('*').order('created_at',{ascending:false}),db.from('settings').select('*').eq('key','card_number')]);
+  cats=c.data||[];products=p.data||[];card=(s.data&&s.data[0]&&s.data[0].value)||'';
+  save();renderCats();render();
+}
+function renderCats(){
+  document.getElementById('cats').innerHTML=`<button class="chip ${cat===0?'on':''}" onclick="setCat(0)">Баары</button>`+cats.map(c=>`<button class="chip ${cat===c.id?'on':''}" onclick="setCat(${c.id})">${esc(c.name)}</button>`).join('');
+}
+function setCat(id){cat=id;renderCats();render()}
+function render(){
+  const q=document.getElementById('q').value.toLowerCase(),so=document.getElementById('sort').value;
+  let l=products.filter(p=>(!cat||p.category_id===cat)&&p.name.toLowerCase().includes(q));
+  if(so)l.sort((a,b)=>so==='asc'?a.price-b.price:b.price-a.price);
+  document.getElementById('grid').innerHTML=l.length?l.map(p=>`<div class="p" onclick="openP(${p.id})"><img loading="lazy" src="${esc((p.images||[])[0]||'')}" alt=""><div><b>${esc(p.name)}${p.is_new?'<i class="badge">Жаңы</i>':''}</b><span>${som(p.price)}</span></div></div>`).join(''):'<p style="grid-column:1/-1;color:#777">Кийим табылган жок.</p>';
+}
+function openSheet(h){document.getElementById('box').innerHTML=h;document.getElementById('sheet').classList.add('open')}
+function closeSheet(){document.getElementById('sheet').classList.remove('open')}
+let sel={};
+function openP(id){
+  const p=products.find(x=>x.id===id);sel={id,size:(p.sizes||[])[0]||'',color:(p.colors||[])[0]||''};
+  const chips=(arr,k)=>(arr||[]).map((v,i)=>`<button class="chip ${i===0?'on':''}" onclick="pick('${k}',this)">${esc(v)}</button>`).join('');
+  openSheet(`<img class="big" src="${esc((p.images||[])[0]||'')}" alt="">
+  <h2 style="margin-top:12px">${esc(p.name)}</h2><b style="color:var(--acc);font-size:20px">${som(p.price)}</b>
+  <p style="color:#555;margin:10px 0">${esc(p.description)}</p>
+  ${p.sizes&&p.sizes.length?`<small>Өлчөм</small><div class="opt" id="o-size">${chips(p.sizes,'size')}</div>`:''}
+  ${p.colors&&p.colors.length?`<small>Түс</small><div class="opt" id="o-color">${chips(p.colors,'color')}</div>`:''}
+  <button class="btn" onclick="addCart()">Себетке кошуу</button>`);
+}
+function pick(k,el){sel[k]=el.textContent;[...el.parentNode.children].forEach(c=>c.classList.remove('on'));el.classList.add('on')}
+function addCart(){
+  const p=products.find(x=>x.id===sel.id);
+  const f=cart.find(i=>i.id===p.id&&i.size===sel.size&&i.color===sel.color);
+  if(f)f.qty++;else cart.push({id:p.id,name:p.name,price:p.price,img:(p.images||[])[0]||'',size:sel.size,color:sel.color,qty:1});
+  save();closeSheet();
+}
+function openCart(){
+  if(!cart.length)return openSheet('<h2>Себет бош</h2><button class="btn alt" onclick="closeSheet()">Жабуу</button>');
+  const total=cart.reduce((s,i)=>s+i.price*i.qty,0);
+  openSheet(`<h2>Себет</h2>`+cart.map((i,n)=>`<div class="row"><div style="flex:1"><b>${esc(i.name)}</b><br><small>${esc(i.size)} ${esc(i.color)} · ${som(i.price)}</small></div>
+  <button class="chip" onclick="qty(${n},-1)">−</button><b>${i.qty}</b><button class="chip" onclick="qty(${n},1)">+</button><button class="x" onclick="del(${n})">×</button></div>`).join('')+
+  `<div class="row"><b>Жалпы:</b><b>${som(total)}</b></div><button class="btn" onclick="checkout()">Буйрутма берүү</button>`);
+}
+function qty(n,d){cart[n].qty+=d;if(cart[n].qty<1)cart.splice(n,1);save();openCart()}
+function del(n){cart.splice(n,1);save();openCart()}
+function checkout(){
+  const total=cart.reduce((s,i)=>s+i.price*i.qty,0);
+  openSheet(`<h2>Буйрутма</h2><div style="display:grid;gap:10px">
+  <input id="fn" placeholder="Аты-жөнү"><input id="ph" type="tel" placeholder="Телефон номери"><textarea id="ad" rows="2" placeholder="Дарек: шаар, көчө, үй"></textarea></div>
+  <div class="pay"><small>Төмөнкү картага которуңуз</small><b>${esc(card)}</b><small>Сумма: ${som(total)}</small></div>
+  <button class="btn" onclick="send()">Төлөдүм, буйрутма берүү</button><p id="err" style="color:#c33;margin-top:8px"></p>`);
+}
+async function send(){
+  const n=fn.value.trim(),p=ph.value.trim(),a=ad.value.trim(),err=document.getElementById('err');
+  if(n.length<2||p.length<7||a.length<5){err.textContent='Бардык талааларды толтуруңуз.';return}
+  const total=cart.reduce((s,i)=>s+i.price*i.qty,0);
+  const {error}=await db.from('orders').insert({customer_name:n,phone:p,address:a,total,items:cart.map(({name,size,color,qty,price})=>({name,size,color,qty,price}))});
+  if(error){err.textContent='Ката чыкты, кайра аракет кылыңыз.';return}
+  cart=[];save();openSheet('<h2>Рахмат! ✅</h2><p>Буйрутмаңыз кабыл алынды. Төлөм текшерилгенден кийин сиз менен байланышабыз.</p><button class="btn" onclick="closeSheet()">Жабуу</button>');
+}
+init();
+</script>
+</body>
+</html>
