@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ky">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Otherwise · Админ</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--fg:#111;--mut:#777;--line:#eee;--acc:#c8a15a;--card:#f7f7f5}
+*{box-sizing:border-box;margin:0}
+body{font-family:system-ui,sans-serif;background:#fff;color:var(--fg);padding:14px;max-width:700px;margin:auto}
+h1{font-size:22px;margin-bottom:12px}h3{margin:16px 0 8px}
+input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font:15px system-ui;background:var(--card);margin-bottom:8px}
+button{border:0;border-radius:10px;padding:12px 16px;font:600 15px system-ui;background:var(--fg);color:#fff}
+button.s{background:var(--card);color:var(--fg)}button.d{background:#fde8e8;color:#c33}
+.tabs{display:flex;gap:8px;margin-bottom:14px}.tabs button{flex:1;background:var(--card);color:var(--fg)}.tabs button.on{background:var(--fg);color:#fff}
+.c{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px}
+.c small{color:var(--mut)}.row{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.msg{color:#c33;margin:6px 0}.ok{color:#2a7}
+.hide{display:none}
+</style>
+</head>
+<body>
+<h1>Otherwise · Админ</h1>
+
+<div id="login">
+  <input id="em" type="email" placeholder="Email"><input id="pw" type="password" placeholder="Сырсөз">
+  <button onclick="signIn()" style="width:100%">Кирүү</button><p class="msg" id="lerr"></p>
+</div>
+
+<div id="app" class="hide">
+  <div class="tabs"><button id="t1" class="on" onclick="tab(1)">Буйрутма</button><button id="t2" onclick="tab(2)">Кийим</button><button id="t3" onclick="tab(3)">Жөндөө</button></div>
+  <div id="v1"></div>
+  <div id="v2" class="hide">
+    <div class="c"><h3 style="margin-top:0">Жаңы кийим</h3>
+      <input id="pn" placeholder="Аты"><input id="pp" type="number" placeholder="Баасы (сом)">
+      <select id="pc"></select>
+      <input id="ps" placeholder="Өлчөмдөр: S,M,L,XL"><input id="pcol" placeholder="Түстөр: Кара,Ак">
+      <input id="pst" type="number" placeholder="Саны (склад)"><textarea id="pd" rows="2" placeholder="Сүрөттөмө"></textarea>
+      <label><input id="pnew" type="checkbox" style="width:auto"> Жаңы деп белгилөө</label>
+      <p><small>Сүрөттөр (бир нечени тандаса болот):</small></p><input id="pf" type="file" accept="image/*" multiple>
+      <button onclick="addProduct()" style="width:100%">Кошуу</button><p id="pmsg"></p></div>
+    <div id="plist"></div>
+  </div>
+  <div id="v3" class="hide">
+    <div class="c"><h3 style="margin-top:0">Төлөм картасы</h3><input id="cn" placeholder="Карта номери"><button onclick="saveCard()">Сактоо</button><p id="cmsg"></p></div>
+    <div class="c"><h3 style="margin-top:0">Жаңы бөлүм</h3><input id="cat" placeholder="Бөлүмдүн аты"><button onclick="addCat()">Кошуу</button></div>
+    <button class="s" onclick="db.auth.signOut().then(()=>location.reload())">Чыгуу</button>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://qxdfdshjqlplvcjzweqf.supabase.co';
+const SUPABASE_KEY='sb_publishable_JVNERPgNvRzjoGTjmj8wKw_kvRZKCPz';
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const som=n=>Number(n).toLocaleString('ru-RU')+' сом';
+const ST=['Жаңы','Төлөм текшерилүүдө','Төлөм тастыкталды','Жөнөтүлдү','Жеткирилди','Жокко чыгарылды'];
+let cats=[];
+
+async function signIn(){
+  const {error}=await db.auth.signInWithPassword({email:$('em').value.trim(),password:$('pw').value});
+  if(error){$('lerr').textContent='Email же сырсөз туура эмес.';return}
+  start();
+}
+async function start(){
+  const {data}=await db.auth.getSession();
+  if(!data.session)return;
+  $('login').classList.add('hide');$('app').classList.remove('hide');
+  await loadCats();loadOrders();loadProducts();loadCard();
+}
+function tab(n){[1,2,3].forEach(i=>{$('v'+i).classList.toggle('hide',i!==n);$('t'+i).classList.toggle('on',i===n)})}
+
+async function loadOrders(){
+  const {data,error}=await db.from('orders').select('*').order('created_at',{ascending:false});
+  if(error){$('v1').innerHTML='<p class="msg">Буйрутмаларды окууга болбой жатат.</p>';return}
+  $('v1').innerHTML=`<button class="s" onclick="loadOrders()" style="width:100%;margin-bottom:12px">Жаңылоо</button>`+(data.length?data.map(o=>`<div class="c">
+    <div class="row"><b>№${o.id} · ${esc(o.customer_name)}</b><b style="color:var(--acc)">${som(o.total)}</b></div>
+    <small>${new Date(o.created_at).toLocaleString('ru-RU')}</small>
+    <p style="margin-top:6px">📞 <a href="tel:${esc(o.phone)}">${esc(o.phone)}</a><br>📍 ${esc(o.address)}</p>
+    <p style="margin:6px 0">${(o.items||[]).map(i=>`• ${esc(i.name)} (${esc(i.size)} ${esc(i.color)}) × ${i.qty}`).join('<br>')}</p>
+    <select onchange="setStatus(${o.id},this.value)">${ST.map(s=>`<option ${s===o.status?'selected':''}>${s}</option>`).join('')}</select></div>`).join(''):'<p>Азырынча буйрутма жок.</p>');
+}
+async function setStatus(id,s){await db.from('orders').update({status:s}).eq('id',id)}
+
+async function loadCats(){
+  const {data}=await db.from('categories').select('*').order('id');cats=data||[];
+  $('pc').innerHTML=cats.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+}
+async function addCat(){
+  const n=$('cat').value.trim();if(!n)return;
+  await db.from('categories').insert({name:n});$('cat').value='';await loadCats();
+}
+async function loadProducts(){
+  const {data}=await db.from('products').select('*').order('created_at',{ascending:false});
+  $('plist').innerHTML=(data||[]).map(p=>`<div class="c row"><div><b>${esc(p.name)}</b><br><small>${som(p.price)} · склад: ${p.stock}</small></div><button class="d" onclick="delProduct(${p.id})">Өчүрүү</button></div>`).join('');
+}
+async function delProduct(id){if(!confirm('Өчүрөсүзбү?'))return;await db.from('products').delete().eq('id',id);loadProducts()}
+const list=s=>s.split(',').map(x=>x.trim()).filter(Boolean);
+async function addProduct(){
+  const m=$('pmsg');m.className='';m.textContent='Жүктөлүп жатат...';
+  try{
+    const urls=[];
+    for(const [i,f] of [...$('pf').files].entries()){
+      const ext=(f.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'');
+      const path=`${Date.now()}-${i}.${ext}`;
+      const {error}=await db.storage.from('products').upload(path,f);
+      if(error)throw error;
+      urls.push(db.storage.from('products').getPublicUrl(path).data.publicUrl);
+    }
+    const {error}=await db.from('products').insert({name:$('pn').value.trim(),price:+$('pp').value,category_id:+$('pc').value||null,sizes:list($('ps').value),colors:list($('pcol').value),stock:+$('pst').value||0,description:$('pd').value,is_new:$('pnew').checked,images:urls});
+    if(error)throw error;
+    m.className='ok';m.textContent='Кошулду ✅';
+    ['pn','pp','ps','pcol','pst','pd','pf'].forEach(i=>$(i).value='');loadProducts();
+  }catch(e){m.className='msg';m.textContent='Ката: '+(e.message||e)}
+}
+async function loadCard(){const {data}=await db.from('settings').select('value').eq('key','card_number');$('cn').value=(data&&data[0]&&data[0].value)||''}
+async function saveCard(){
+  const {error}=await db.from('settings').update({value:$('cn').value.trim()}).eq('key','card_number');
+  $('cmsg').textContent=error?'Ката чыкты':'Сакталды ✅';
+}
+start();
+</script>
+</body>
+</html>
