@@ -64,7 +64,7 @@ h2{margin-bottom:10px;letter-spacing:-.4px}small{color:var(--mut)}
 <body>
 <header><div class="logo">Otherwise</div><button class="cartbtn" onclick="openCart()">Себет · <span id="cnt">0</span></button></header>
 <section class="hero"><h1>Өзүңдүн<br>стилиңди тап.</h1><p>Жаңы кийимдер, ыңгайлуу баалар.</p></section>
-<div class="tools"><input id="q" placeholder="Кийим издөө..." oninput="render()">
+<div class="tools"><input id="q" type="search" enterkeyhint="search" placeholder="Кийим издөө..." oninput="render()" onkeydown="if(event.key==='Enter')this.blur()">
 <select id="sort" onchange="render()"><option value="">Жаңылары</option><option value="asc">Баасы: арзандан кымбатка</option><option value="desc">Баасы: кымбаттан арзанга</option></select></div>
 <div class="cats" id="cats"></div>
 <div class="grid" id="grid"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
@@ -95,10 +95,11 @@ async function init(){
 function renderCats(){
   $('cats').innerHTML=`<button class="chip ${cat===0?'on':''}" onclick="setCat(0)">Баары</button>`+cats.map(c=>`<button class="chip ${cat===c.id?'on':''}" onclick="setCat(${c.id})">${esc(c.name)}</button>`).join('');
 }
-function setCat(id){cat=id;renderCats();render()}
+function setCat(id){cat=id;$('q').blur();renderCats();render()}
+document.addEventListener('touchmove',()=>{const a=document.activeElement;if(a&&a.id==='q')a.blur()},{passive:true});
 function render(){
   const q=$('q').value.toLowerCase(),so=$('sort').value;
-  let l=products.filter(p=>(!cat||p.category_id===cat)&&p.name.toLowerCase().includes(q));
+  let l=products.filter(p=>(q||!cat||p.category_id===cat)&&p.name.toLowerCase().includes(q));
   if(so)l.sort((a,b)=>so==='asc'?a.price-b.price:b.price-a.price);
   $('grid').innerHTML=l.length?l.map((p,i)=>`<div class="p" style="animation-delay:${Math.min(i,8)*50}ms" onclick="openP(${p.id})"><div class="im"><img loading="lazy" src="${esc((p.images||[])[0]||'')}" alt="">${p.is_new?'<i class="badge">Жаңы</i>':''}</div><b>${esc(p.name)}</b><span>${som(p.price)}</span></div>`).join(''):'<p style="grid-column:1/-1;color:#80807a;padding:20px 0">Кийим табылган жок.</p>';
 }
