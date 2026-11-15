@@ -2,7 +2,7 @@
 <html lang="ky">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Otherwise</title>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -10,6 +10,7 @@
 <style>
 :root{--bg:#fff;--fg:#111;--mut:#80807a;--line:#eeeeea;--acc:#b8924a;--card:#f6f6f3}
 *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{max-width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%}
 body{font-family:Manrope,system-ui,sans-serif;background:var(--bg);color:var(--fg);padding-bottom:env(safe-area-inset-bottom)}
 header{position:sticky;top:0;background:#ffffffe6;backdrop-filter:blur(12px);display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);z-index:5}
 .logo{font-weight:800;font-size:23px;letter-spacing:-.8px}
@@ -20,7 +21,7 @@ header{position:sticky;top:0;background:#ffffffe6;backdrop-filter:blur(12px);dis
 .hero h1{font-size:34px;font-weight:800;line-height:1.08;letter-spacing:-1px}
 .hero p{color:#ffffffb0;margin-top:10px;font-size:15px}
 .tools{padding:6px 16px 0;display:grid;gap:10px}
-input,select,textarea{width:100%;padding:14px;border:1px solid var(--line);border-radius:14px;font:500 15px Manrope;background:var(--card);outline:none;transition:.2s}
+input,select,textarea{width:100%;padding:14px;border:1px solid var(--line);border-radius:14px;font:500 16px Manrope;background:var(--card);outline:none;transition:.2s}
 input:focus,select:focus,textarea:focus{border-color:var(--fg);background:#fff}
 .cats{display:flex;gap:8px;overflow-x:auto;padding:14px 16px;scrollbar-width:none}
 .cats::-webkit-scrollbar{display:none}
@@ -140,7 +141,7 @@ function del(n){cart.splice(n,1);save();openCart()}
 function checkout(){
   const total=cart.reduce((s,i)=>s+i.price*i.qty,0);
   openSheet(`<h2>Буйрутма</h2><div style="display:grid;gap:10px">
-  <input id="fn" placeholder="Аты-жөнү"><input id="ph" type="tel" placeholder="Телефон номери"><textarea id="ad" rows="2" placeholder="Дарек: шаар, көчө, үй"></textarea></div>
+  <input id="fn" placeholder="Аты-жөнү" enterkeyhint="done" onkeydown="if(event.key==='Enter')this.blur()"><input id="ph" type="tel" placeholder="Телефон номери"><textarea id="ad" rows="2" placeholder="Дарек: шаар, көчө, үй" enterkeyhint="done" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"></textarea></div>
   <div class="pay"><small>1. Төмөнкү картага которуңуз</small><b>${esc(card)}</b><small>Сумма: ${som(total)}</small></div>
   <small>2. Төлөм скриншотун жүктөңүз</small><input id="pf" type="file" accept="image/*" style="margin-top:6px">
   <button class="btn" id="sbtn" onclick="send()">Төлөдүм, буйрутма берүү</button><p id="err" style="color:#c33;margin-top:8px"></p>`);
