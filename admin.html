@@ -84,7 +84,7 @@ async function loadOrders(){
     <p style="margin-top:6px">📞 <a href="tel:${esc(o.phone)}">${esc(o.phone)}</a><br>📍 ${esc(o.address)}</p>
     <p style="margin:6px 0">${(o.items||[]).map(i=>`• ${esc(i.name)} (${esc(i.size)} ${esc(i.color)}) × ${i.qty}`).join('<br>')}</p>
     ${o.payment_proof?`<a href="${esc(o.payment_proof)}" target="_blank"><img src="${esc(o.payment_proof)}" alt="Төлөм" style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin:4px 0 8px"></a>`:''}
-    <select onchange="setStatus(${o.id},this.value)">${ST.map(s=>`<option ${s===o.status?'selected':''}>${s}</option>`).join('')}</select></div>`).join(''):'<p>Азырынча буйрутма жок.</p>');
+    <select onchange="setStatus(${o.id},this.value)">${ST.map(s=>`<option ${s===o.status?'selected':''}>${s}</option>`).join('')}</select><button class="d" style="width:100%;margin-top:8px" onclick="delOrder(${o.id})">🗑 Өчүрүү</button></div>`).join(''):'<p>Азырынча буйрутма жок.</p>');
 }
 let ORD=[];
 function renderCustomers(){
@@ -97,6 +97,15 @@ function renderCustomers(){
   });
   const l=Object.values(m).sort((a,b)=>b.sum-a.sum);
   $('v4').innerHTML=l.length?l.map(c=>`<div class="c"><div class="row"><b>${esc(c.name)}</b><b style="color:var(--acc)">${som(c.sum)}</b></div><p style="margin:6px 0">📞 <a href="tel:${esc(c.phone)}">${esc(c.phone)}</a><br>📍 ${esc(c.addr)}</p><small>Буйрутма: ${c.n} · акыркысы ${new Date(c.last).toLocaleDateString('ru-RU')}</small></div>`).join(''):'<p>Кардар азырынча жок.</p>';
+}
+async function delOrder(id){
+  if(!confirm('№'+id+' буйрутма жана анын төлөм сүрөтү өчөт. Макулбу?'))return;
+  const o=(ORD||[]).find(x=>x.id===id);
+  const {error}=await db.from('orders').delete().eq('id',id);
+  if(error){alert('Өчүрүүгө болбой жатат: '+error.message);return}
+  const m=o&&o.payment_proof&&o.payment_proof.split('/proofs/')[1];
+  if(m)await db.storage.from('proofs').remove([decodeURIComponent(m.split('?')[0])]);
+  loadOrders();
 }
 async function setStatus(id,s){await db.from('orders').update({status:s}).eq('id',id)}
 
