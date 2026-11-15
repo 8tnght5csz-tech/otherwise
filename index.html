@@ -96,7 +96,9 @@ function renderCats(){
   $('cats').innerHTML=`<button class="chip ${cat===0?'on':''}" onclick="setCat(0)">Баары</button>`+cats.map(c=>`<button class="chip ${cat===c.id?'on':''}" onclick="setCat(${c.id})">${esc(c.name)}</button>`).join('');
 }
 function setCat(id){cat=id;$('q').blur();renderCats();render()}
-document.addEventListener('touchmove',()=>{const a=document.activeElement;if(a&&a.id==='q')a.blur()},{passive:true});
+const isF=e=>e&&['INPUT','TEXTAREA','SELECT'].includes(e.tagName);
+document.addEventListener('touchmove',()=>{const a=document.activeElement;if(isF(a))a.blur()},{passive:true});
+document.addEventListener('touchstart',e=>{const a=document.activeElement;if(isF(a)&&!isF(e.target))a.blur()},{passive:true});
 function render(){
   const q=$('q').value.toLowerCase(),so=$('sort').value;
   let l=products.filter(p=>(q||!cat||p.category_id===cat)&&p.name.toLowerCase().includes(q));
@@ -160,7 +162,7 @@ async function send(){
     const {error}=await db.from('orders').insert({customer_name:n,phone:p,address:a,total,payment_proof:url,tg_id:tgId,status:'Төлөм текшерилүүдө',items:cart.map(({name,size,color,qty,price})=>({name,size,color,qty,price}))});
     if(error)throw error;
     cart=[];save();openSheet('<h2>Рахмат! ✅</h2><p style="line-height:1.5">Буйрутмаңыз кабыл алынды. Төлөмдү текшерип, сиз менен байланышабыз.</p><button class="btn" onclick="closeSheet()">Жабуу</button>');
-  }catch(e){err.textContent='Ката чыкты, кайра аракет кылыңыз.';btn.disabled=false;btn.textContent='Төлөдүм, буйрутма берүү'}
+  }catch(e){err.textContent='Ката: '+((e&&e.message)||'белгисиз');btn.disabled=false;btn.textContent='Төлөдүм, буйрутма берүү'}
 }
 init();
 </script>
