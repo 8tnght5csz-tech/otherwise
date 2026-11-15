@@ -30,7 +30,7 @@ button.s{background:var(--card);color:var(--fg)}button.d{background:#fde8e8;colo
 </div>
 
 <div id="app" class="hide">
-  <div class="tabs"><button id="t1" class="on" onclick="tab(1)">Буйрутма</button><button id="t2" onclick="tab(2)">Кийим</button><button id="t3" onclick="tab(3)">Жөндөө</button></div>
+  <div class="tabs"><button id="t1" class="on" onclick="tab(1)">Буйрутма</button><button id="t2" onclick="tab(2)">Кийим</button><button id="t3" onclick="tab(3)">Жөндөө</button><button id="t4" onclick="tab(4)">Кардар</button></div>
   <div id="v1"></div>
   <div id="v2" class="hide">
     <div class="c"><h3 style="margin-top:0">Жаңы кийим</h3>
@@ -43,6 +43,7 @@ button.s{background:var(--card);color:var(--fg)}button.d{background:#fde8e8;colo
       <button onclick="addProduct()" style="width:100%">Кошуу</button><p id="pmsg"></p></div>
     <div id="plist"></div>
   </div>
+  <div id="v4" class="hide"></div>
   <div id="v3" class="hide">
     <div class="c"><h3 style="margin-top:0">Төлөм картасы</h3><input id="cn" placeholder="Карта номери"><button onclick="saveCard()">Сактоо</button><p id="cmsg"></p></div>
     <div class="c"><h3 style="margin-top:0">Жаңы бөлүм</h3><input id="cat" placeholder="Бөлүмдүн аты"><button onclick="addCat()">Кошуу</button></div>
@@ -71,11 +72,12 @@ async function start(){
   $('login').classList.add('hide');$('app').classList.remove('hide');
   await loadCats();loadOrders();loadProducts();loadCard();
 }
-function tab(n){[1,2,3].forEach(i=>{$('v'+i).classList.toggle('hide',i!==n);$('t'+i).classList.toggle('on',i===n)})}
+function tab(n){[1,2,3,4].forEach(i=>{$('v'+i).classList.toggle('hide',i!==n);$('t'+i).classList.toggle('on',i===n)})}
 
 async function loadOrders(){
   const {data,error}=await db.from('orders').select('*').order('created_at',{ascending:false});
   if(error){$('v1').innerHTML='<p class="msg">Буйрутмаларды окууга болбой жатат.</p>';return}
+  ORD=data;renderCustomers();
   $('v1').innerHTML=`<button class="s" onclick="loadOrders()" style="width:100%;margin-bottom:12px">Жаңылоо</button>`+(data.length?data.map(o=>`<div class="c">
     <div class="row"><b>№${o.id} · ${esc(o.customer_name)}</b><b style="color:var(--acc)">${som(o.total)}</b></div>
     <small>${new Date(o.created_at).toLocaleString('ru-RU')}</small>
@@ -83,6 +85,18 @@ async function loadOrders(){
     <p style="margin:6px 0">${(o.items||[]).map(i=>`• ${esc(i.name)} (${esc(i.size)} ${esc(i.color)}) × ${i.qty}`).join('<br>')}</p>
     ${o.payment_proof?`<a href="${esc(o.payment_proof)}" target="_blank"><img src="${esc(o.payment_proof)}" alt="Төлөм" style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin:4px 0 8px"></a>`:''}
     <select onchange="setStatus(${o.id},this.value)">${ST.map(s=>`<option ${s===o.status?'selected':''}>${s}</option>`).join('')}</select></div>`).join(''):'<p>Азырынча буйрутма жок.</p>');
+}
+let ORD=[];
+function renderCustomers(){
+  const m={};
+  (ORD||[]).forEach(o=>{
+    const k=(o.phone||'').replace(/\D/g,'')||o.customer_name;
+    const c=m[k]||(m[k]={name:o.customer_name,phone:o.phone,addr:o.address,n:0,sum:0,last:o.created_at});
+    c.n++;if(o.status!=='Жокко чыгарылды')c.sum+=Number(o.total);
+    if(o.created_at>c.last)c.last=o.created_at;
+  });
+  const l=Object.values(m).sort((a,b)=>b.sum-a.sum);
+  $('v4').innerHTML=l.length?l.map(c=>`<div class="c"><div class="row"><b>${esc(c.name)}</b><b style="color:var(--acc)">${som(c.sum)}</b></div><p style="margin:6px 0">📞 <a href="tel:${esc(c.phone)}">${esc(c.phone)}</a><br>📍 ${esc(c.addr)}</p><small>Буйрутма: ${c.n} · акыркысы ${new Date(c.last).toLocaleDateString('ru-RU')}</small></div>`).join(''):'<p>Кардар азырынча жок.</p>';
 }
 async function setStatus(id,s){await db.from('orders').update({status:s}).eq('id',id)}
 
